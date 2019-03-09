@@ -1,0 +1,12 @@
+#!/bin/bash
+#run_ring
+#make sure the process is always running.
+
+process="python /opt/fhem/bin/ring.py"
+
+pkill -9 -f ring.py
+
+$process < /dev/null &> /dev/null & disown
+echo "Process $process started."
+
+exit
