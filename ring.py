@@ -129,7 +129,7 @@ def waitForVideoDownload(alertID,alertKind,ringDev):
     videoIsReadyForDownload = None
     counti = 1
     while (videoIsReadyForDownload is None):
-        logger.debug(str(counti) + ". Try to find hitory and video in history data list")
+        logger.debug(str(counti) + ". Try to find history and video in history data list")
         logger.debug("  historyID:"+str(alertID))
         try:
             singleHistoryItem = findHistoryItem(ringDev.history(limit=10,kind=alertKind),alertID)
