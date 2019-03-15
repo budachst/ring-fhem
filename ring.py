@@ -1,15 +1,12 @@
-# v 1.0
-# added: threadded video download
-#
-# v 1.0.1
-# added local vars to threadded function
-
 from ring_doorbell import Ring
 import time
 import fhem
 import logging
 import threading
 import thread
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 from thread import start_new_thread, allocate_lock
 
@@ -86,7 +83,7 @@ def getDeviceInfo(dev):
     dev.update()
     logger.info("Updating device data for device '"+dev.name+"' in FHEM...")
     srRing('account ' + str(dev.account_id), dev)
-    srRing('address ' + str(dev.address), dev)
+    srRing('address ' + (dev.address), dev)
     srRing('family ' + str(dev.family), dev)
     srRing('id ' + str(dev.id), dev)
     srRing('name ' + str(dev.name), dev)
