@@ -8,4 +8,4 @@ If a motion or ding event occurs, the handling for downloading the video gets ha
 Moved some vars into the local context of the threadded function to isolate the events' information
 
 # v 1.0.2 - added utf-8 encoding for handling umlauts
-Switched the default encoding to utf8 for the running python script. This allows for proper utf-encoding and decoding, when trying to send atrribute updates to FHEM
+Switched the default encoding to utf8 for the running python script. This allows for proper utf-8-encoding and -decoding, when trying to send attribute updates to FHEM
