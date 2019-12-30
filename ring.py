@@ -1,24 +1,30 @@
+# A little Pyhon3 app, which queries Ring products and integrates
+# them with Fhem
+#
+# v 1.0.3
+
 from ring_doorbell import Ring
 import time
 import fhem
 import logging
 import threading
-import thread
-import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+import _thread
+import sys  # import sys package, if not already imported
 
-from thread import start_new_thread, allocate_lock
+from _thread import start_new_thread, allocate_lock
 
 
 # CONFIG
-ring_user = 'user@domain.com'
+ring_user = 'user@foo.bar'
 ring_pass = 'password'
 fhem_ip   = '127.0.0.1'
 fhem_port = 7072 # Telnet Port
 log_level = logging.DEBUG
 fhem_path = '/opt/fhem/www/ring/' # for video downloads
 POLLS     = 2 # Poll every x seconds
+
+# thread-related VARs
+# checkForVideoRunning = False # safeguard against race-condition
 
 # LOGGING
 logger = logging.getLogger('ring_doorbell.doorbot')
@@ -83,7 +89,7 @@ def getDeviceInfo(dev):
     dev.update()
     logger.info("Updating device data for device '"+dev.name+"' in FHEM...")
     srRing('account ' + str(dev.account_id), dev)
-    srRing('address ' + (dev.address), dev)
+    srRing('address ' + dev.address, dev)
     srRing('family ' + str(dev.family), dev)
     srRing('id ' + str(dev.id), dev)
     srRing('name ' + str(dev.name), dev)
@@ -123,10 +129,11 @@ def findHistoryItem(historyArry,id):
     return ret
 
 def waitForVideoDownload(alertID,alertKind,ringDev):
+    # global checkForVideoRunning
     videoIsReadyForDownload = None
     counti = 1
     while (videoIsReadyForDownload is None):
-        logger.debug(str(counti) + ". Try to find history and video in history data list")
+        logger.debug(str(counti) + ". Try to find hitory and video in history data list")
         logger.debug("  historyID:"+str(alertID))
         try:
             singleHistoryItem = findHistoryItem(ringDev.history(limit=10,kind=alertKind),alertID)
@@ -155,9 +162,11 @@ def waitForVideoDownload(alertID,alertKind,ringDev):
 
     if videoIsReadyForDownload:
         srRing('lastCaptureURL ' + str(ringDev.recording_url(ringDev.last_recording_id)), ringDev)
+    #checkForVideoRunning = False
 
 
 def alertDevice(dev,alert):
+    # global checkForVideoRunning
     srRing('lastAlertDeviceID ' + str(dev.id), dev)
     srRing('lastAlertDeviceAccountID ' + str(dev.account_id), dev)
     srRing('lastAlertDeviceName ' + str(dev.name), dev)
@@ -177,10 +186,12 @@ def alertDevice(dev,alert):
         logger.debug("Signalling motion to FHEM")
         srRing('lastAlertType motion', dev)
         setRing('motion', dev)
+    #if ((lastAlertKind == 'ding' or lastAlertKind == 'motion') and not checkForVideoRunning):
+    #    checkForVideoRunning = True
     thread.start_new_thread(waitForVideoDownload,(lastAlertID,lastAlertKind,dev))
 
 
-        
+
 # GATHERING DEVICES
 devs = dict()
 poll_device = None

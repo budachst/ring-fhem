@@ -9,3 +9,7 @@ Moved some vars into the local context of the threadded function to isolate the 
 
 # v 1.0.2 - added utf-8 encoding for handling umlauts
 Switched the default encoding to utf8 for the running python script. This allows for proper utf-8-encoding and -decoding, when trying to send attribute updates to FHEM
+
+# v 1.0.3 - switched to Python3
+Switched to Python3, due to changes in tchellomello/python-ring-doorbell
+library. E.g. the OAuth2 lib seems to be Python3-only
