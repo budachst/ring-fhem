@@ -1,15 +1,15 @@
 # A little Pyhon3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.3
+# v 1.0.4
 
-from ring_doorbell import Ring
 import time
 import fhem
 import logging
 import threading
 import _thread
 import sys  # import sys package, if not already imported
+from ring_doorbell import Ring, Auth
 
 from _thread import start_new_thread, allocate_lock
 
@@ -53,7 +53,9 @@ logger.addHandler(fh)
 
 
 # Connecting to RING.com
-myring = Ring(ring_user, ring_pass)
+auth = Auth(None, None)
+auth.fetch_token(ring_user, ring_pass)
+myring = Ring(auth)
 
 fh = fhem.Fhem(fhem_ip, fhem_port)
 

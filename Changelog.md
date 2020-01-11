@@ -13,3 +13,6 @@ Switched the default encoding to utf8 for the running python script. This allows
 # v 1.0.3 - switched to Python3
 Switched to Python3, due to changes in tchellomello/python-ring-doorbell
 library. E.g. the OAuth2 lib seems to be Python3-only
+
+# v 1.0.4 - integrated new Auth function
+On startup, ring.py will login and request a new auth token using user/pass fpr the ring site
