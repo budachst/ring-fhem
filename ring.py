@@ -1,7 +1,7 @@
 # A little Pyhon3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.4
+# v 1.0.5
 
 import time
 import fhem
@@ -190,7 +190,7 @@ def alertDevice(dev,alert):
         setRing('motion', dev)
     #if ((lastAlertKind == 'ding' or lastAlertKind == 'motion') and not checkForVideoRunning):
     #    checkForVideoRunning = True
-    thread.start_new_thread(waitForVideoDownload,(lastAlertID,lastAlertKind,dev))
+    _thread.start_new_thread(waitForVideoDownload,(lastAlertID,lastAlertKind,dev))
 
 
 

@@ -16,3 +16,6 @@ library. E.g. the OAuth2 lib seems to be Python3-only
 
 # v 1.0.4 - integrated new Auth function
 On startup, ring.py will login and request a new auth token using user/pass fpr the ring site
+
+# v 1.0.5 - fixed threading for Python3
+Correct the threading call for gathering the videos from the ring site
