@@ -1,4 +1,4 @@
-# A little Pyhon3 app, which queries Ring products and integrates
+# A little Python3 app, which queries Ring products and integrates
 # them with Fhem
 #
 # v 1.0.5
