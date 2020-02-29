@@ -1,17 +1,23 @@
 # A little Python3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.5
+# v 1.0.6
 
+import json
 import time
 import fhem
+import getpass
+from pathlib import Path
 import logging
 import threading
 import _thread
 import sys  # import sys package, if not already imported
 from ring_doorbell import Ring, Auth
-
+from oauthlib.oauth2 import MissingTokenError
 from _thread import start_new_thread, allocate_lock
+
+cache_file = Path("ring_token.cache")
+
 
 
 # CONFIG
@@ -53,9 +59,27 @@ logger.addHandler(fh)
 
 
 # Connecting to RING.com
-auth = Auth(None, None)
-auth.fetch_token(ring_user, ring_pass)
+def token_updated(token):
+    cache_file.write_text(json.dumps(token))
+
+def otp_callback():
+    auth_code = input("2FA code: ")
+    return auth_code
+
+if cache_file.is_file():
+    auth = Auth("MyProject/1.0", json.loads(cache_file.read_text()), token_updated)
+else:
+    username = input("Username: ")
+    password = getpass.getpass("Password: ")
+    auth = Auth("MyProject/1.0", None, token_updated)
+    try:
+        auth.fetch_token(username, password)
+    except MissingTokenError:
+        auth.fetch_token(username, password, otp_callback())
+
 myring = Ring(auth)
+myring.update_data()
+
 
 fh = fhem.Fhem(fhem_ip, fhem_port)
 
@@ -88,35 +112,50 @@ thread_started = False
 lock = allocate_lock()
 
 def getDeviceInfo(dev):
-    dev.update()
+    # dev.update()
     logger.info("Updating device data for device '"+dev.name+"' in FHEM...")
-    srRing('account ' + str(dev.account_id), dev)
-    srRing('address ' + dev.address, dev)
-    srRing('family ' + str(dev.family), dev)
-    srRing('id ' + str(dev.id), dev)
+    # from generc.py
     srRing('name ' + str(dev.name), dev)
+    srRing('id ' + str(dev.device_id), dev)
+    srRing('family ' + str(dev.family), dev)
+    srRing('model ' + str(dev.model), dev)
+    srRing('address ' + str(dev.address), dev)
+    srRing('firmware ' +str(dev.firmware), dev)
+    srRing('latitude ' + str(dev.latitude), dev)
+    srRing('longitude ' + str(dev.longitude), dev)
+    srRing('kind ' + str(dev.kind), dev)
     srRing('timezone ' + str(dev.timezone), dev)
-    srRing('doorbellType ' + str(dev.existing_doorbell_type), dev)
-    srRing('battery ' + str(dev.battery_life), dev)
-    srRing('ringVolume ' + str(dev.volume), dev)
-    srRing('connectionStatus ' + str(dev.connection_status), dev)
     srRing('WifiName ' + str(dev.wifi_name), dev)
     srRing('WifiRSSI ' + str(dev.wifi_signal_strength), dev)
+    srRing('WifiCategory ' + str(dev.wifi_signal_category), dev)
+    # from doorbot.py
+    srRing('Model ' + str(dev.model), dev)
+    srRing('battery ' + str(dev.battery_life), dev)
+    srRing('doorbellType ' + str(dev.existing_doorbell_type), dev)
+    srRing('subscribed ' + str(dev.subscribed), dev)
+    srRing('ringVolume ' + str(dev.volume), dev)
+    srRing('connectionStatus ' + str(dev.connection_status), dev)
 
 
 def pollDevices():
     logger.info("Polling for events.")
-    global devs
+    global tmp
 
     i=0
     while 1:
-        for k, poll_device in devs.items():
+        for poll_device in tmp:
+            myring.update_dings()
             logger.debug("Polling for events with '" + poll_device.name + "'.")
-            if poll_device.check_alerts() and poll_device.alert:
-                dev = devs[poll_device.alert.get('doorbot_id')]
-                logger.info("Alert detected at '" + dev.name + "'.")
-                logger.debug("Alert detected at '" + dev.name + "' via '" + poll_device.name + "'.")
-                alertDevice(dev,poll_device.alert)
+            logger.debug("Connection status '" + poll_device.connection_status + "'.")
+            # logger.debug("Last URL: " + poll_device.recording_url(poll_device.last_recording_id))
+
+            if myring.dings_data:
+                dingsEvent = myring.dings_data[0]
+                logger.debug("Dings: " + str(myring.dings_data))
+                logger.debug("State: " + str(dingsEvent["state"]))
+                logger.info("Alert detected at '" + poll_device.name + "'.")
+                logger.debug("Alert detected at '" + poll_device.address + "' via '" + poll_device.name + "'.")
+                alertDevice(poll_device,dingsEvent,str(dingsEvent["state"]))
             time.sleep(POLLS)
         i+=1
         if i>600:
@@ -166,51 +205,69 @@ def waitForVideoDownload(alertID,alertKind,ringDev):
         srRing('lastCaptureURL ' + str(ringDev.recording_url(ringDev.last_recording_id)), ringDev)
     #checkForVideoRunning = False
 
+def downloadLatestDingVideo(doorbell,dingsEvent,lastAlertKind):
+    logger.debug("Trying to download latest Ding-Video")
+    doorbell.recording_download(
+        doorbell.history(limit=100, kind=str(lastAlertKind))[0]['id'],
+                        filename='last_ding.mp4',
+                        override=True)
+    srRing('lastDingVideo ' + fhem_path + 'last_'+str(lastAlertKind)+'_video.mp4', poll_device)
 
-def alertDevice(dev,alert):
+def getLastCaptureVideoURL(doorbell):
+    lastCaptureURL = doorbell.recording_url(doorbell.last_recording_id)
+    srRing('lastCaptureURL ' + str(lastCaptureURL), doorbell)
+
+def alertDevice(poll_device,dingsEvent,alert):
     # global checkForVideoRunning
-    srRing('lastAlertDeviceID ' + str(dev.id), dev)
-    srRing('lastAlertDeviceAccountID ' + str(dev.account_id), dev)
-    srRing('lastAlertDeviceName ' + str(dev.name), dev)
-    srRing('lastAlertSipTo ' + str(alert.get('sip_to')), dev)
-    srRing('lastAlertSipToken ' + str(alert.get('sip_token')), dev)
-
-    lastAlertID = alert.get('id')
-    lastAlertKind = alert.get('kind')
+    lastAlertID = str(dingsEvent["id"])
+    lastAlertKind = str(dingsEvent["kind"])
     logger.debug("lastAlertID:"+str(lastAlertID))
     logger.debug("lastAlertKind:"+str(lastAlertKind))
 
+    srRing('lastAlertDeviceID ' + str(poll_device.device_id), poll_device)
+    srRing('lastAlertDeviceName ' + str(poll_device.name), poll_device)
+    srRing('lastAlertSipTo ' + str(dingsEvent["sip_to"]), poll_device)
+    srRing('lastAlertSipToken ' + str(dingsEvent["sip_token"]), poll_device)
+
+
     if (lastAlertKind == 'ding'):
         logger.debug("Signalling ring to FHEM")
-        setRing('ring', dev)
-        srRing('lastAlertType ring', dev)
+        setRing('ring', poll_device)
+        srRing('lastAlertType ring', poll_device)
     elif (lastAlertKind == 'motion'):
         logger.debug("Signalling motion to FHEM")
-        srRing('lastAlertType motion', dev)
-        setRing('motion', dev)
+        srRing('lastAlertType motion', poll_device)
+        setRing('motion', poll_device)
     #if ((lastAlertKind == 'ding' or lastAlertKind == 'motion') and not checkForVideoRunning):
     #    checkForVideoRunning = True
-    _thread.start_new_thread(waitForVideoDownload,(lastAlertID,lastAlertKind,dev))
+    if poll_device.recording_url(poll_device.last_recording_id):
+        _thread.start_new_thread(getLastCaptureVideoURL,(poll_device,))
+        # _thread.start_new_thread(downloadLatestDingVideo,(poll_device,dingsEvent,lastAlertKind))
+        # _thread.start_new_thread(waitForVideoDownload,(lastAlertID,lastAlertKind,poll_device))
 
 
 
 # GATHERING DEVICES
-devs = dict()
+devs = myring.devices()
 poll_device = None
-tmp = list(myring.stickup_cams + myring.doorbells)
+tmp = list(devs['doorbots'])
+logger.debug(tmp)
 for t in tmp:
-    devs[t.account_id] = t
+    t.update_health_data()
+    logger.debug(t.address)
+    # devs[t.id] = t
     # all alerts can be recognized on all devices
     poll_device = t # take one device for polling
 
-logger.info("Found " + str(len(devs)) + " devices.")
+logger.info("Found " + str(len(tmp)) + " devices.")
+getDeviceInfo(t)
 
 # START POLLING DEVICES
 count = 1
 while count<6:  # try 5 times
     try:
         while 1:
-            for k, d in devs.items(): getDeviceInfo(d)
+            # for k, d in devs(): getDeviceInfo(d)
             pollDevices()
 
     except Exception as inst:

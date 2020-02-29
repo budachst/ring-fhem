@@ -19,3 +19,10 @@ On startup, ring.py will login and request a new auth token using user/pass fpr 
 
 # v 1.0.5 - fixed threading for Python3
 Correct the threading call for gathering the videos from the ring site
+
+# v 1.0.6 - compatibiliy adjustements for pyhthon-ring-doorbell lib - current master branch.
+Needs Python3.7
+Added 2FA authentication
+Added interactive user/passwords
+Reworked code for compatibility with python-ring-doorbell master(0.6.0+)
+Fixed getting lastCaptureURL from Ring api
