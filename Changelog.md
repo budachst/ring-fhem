@@ -15,7 +15,7 @@ Switched to Python3, due to changes in tchellomello/python-ring-doorbell
 library. E.g. the OAuth2 lib seems to be Python3-only
 
 # v 1.0.4 - integrated new Auth function
-On startup, ring.py will login and request a new auth token using user/pass fpr the ring site
+On startup, ring.py will login and request a new auth token using user/pass for the ring site
 
 # v 1.0.5 - fixed threading for Python3
 Correct the threading call for gathering the videos from the ring site
@@ -24,5 +24,9 @@ Correct the threading call for gathering the videos from the ring site
 Needs Python3.7
 Added 2FA authentication
 Added interactive user/passwords
-Reworked code for compatibility with python-ring-doorbell master(0.6.0+)
+Reworked code for compatibility with tchellomello/python-ring-doorbell master(0.6.0+)
 Fixed getting lastCaptureURL from Ring api
+
+# v 1.0.7 - added authorized_doorbots to list of monitored devices
+Doorbots which have been granted to "neighbour" users are now gathered from
+the Ring api

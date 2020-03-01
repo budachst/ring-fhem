@@ -1,7 +1,7 @@
 # A little Python3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.6
+# v 1.0.7
 
 import json
 import time
@@ -250,7 +250,8 @@ def alertDevice(poll_device,dingsEvent,alert):
 # GATHERING DEVICES
 devs = myring.devices()
 poll_device = None
-tmp = list(devs['doorbots'])
+logger.debug("Devices: " + str(devs))
+tmp = list(devs['doorbots']+devs['authorized_doorbots'])
 logger.debug(tmp)
 for t in tmp:
     t.update_health_data()
