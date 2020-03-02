@@ -1,7 +1,7 @@
 # A little Python3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.7
+# v 1.0.9
 
 import json
 import time
@@ -136,86 +136,76 @@ def getDeviceInfo(dev):
     srRing('ringVolume ' + str(dev.volume), dev)
     srRing('connectionStatus ' + str(dev.connection_status), dev)
 
-
 def pollDevices():
     logger.info("Polling for events.")
     global tmp
 
-    i=0
+    waitsec = 0
     while 1:
         for poll_device in tmp:
-            myring.update_dings()
-            logger.debug("Polling for events with '" + poll_device.name + "'.")
-            logger.debug("Connection status '" + poll_device.connection_status + "'.")
-            # logger.debug("Last URL: " + poll_device.recording_url(poll_device.last_recording_id))
+            try:
+                myring.update_dings()
+                logger.debug("Polling for events with '" + poll_device.name + "'.")
+                logger.debug("Connection status '" + poll_device.connection_status + "'.")
+                # logger.debug("Last URL: " + poll_device.recording_url(poll_device.last_recording_id))
 
-            if myring.dings_data:
-                dingsEvent = myring.dings_data[0]
-                logger.debug("Dings: " + str(myring.dings_data))
-                logger.debug("State: " + str(dingsEvent["state"]))
-                logger.info("Alert detected at '" + poll_device.name + "'.")
-                logger.debug("Alert detected at '" + poll_device.address + "' via '" + poll_device.name + "'.")
-                alertDevice(poll_device,dingsEvent,str(dingsEvent["state"]))
-            time.sleep(POLLS)
-        i+=1
-        if i>600:
-            break
+                if myring.dings_data:
+                    dingsEvent = myring.dings_data[0]
+                    logger.debug("Dings: " + str(myring.dings_data))
+                    logger.debug("State: " + str(dingsEvent["state"]))
+                    logger.info("Alert detected at '" + poll_device.name + "'.")
+                    logger.debug("Alert detected at '" + poll_device.address + "' via '" + poll_device.name + "'.")
+                    alertDevice(poll_device,dingsEvent,str(dingsEvent["state"]))
+                time.sleep(POLLS)
+                # reset wait counter
+                waitsec = 0
+            except Exception as inst:
+                logger.debug("No connection to Ring API, still trying...")
+            waitsec += 1
+            if waitsec > 600:
+                logger.debug("Giving up after " + str(waitsec) + "seconds.")
+                break
 
-def findHistoryItem(historyArry,id):
-    ret = None
-    for singleItem in historyArry:
-        if (singleItem['id']==id):
-            ret = singleItem
-            break
-    return ret
-
-def waitForVideoDownload(alertID,alertKind,ringDev):
-    # global checkForVideoRunning
+def downloadLatestDingVideo(doorbell,lastAlertID,lastAlertKind):
+    logger.debug("Trying to download latest Ding-Video")
     videoIsReadyForDownload = None
-    counti = 1
+    waitsec = 1
     while (videoIsReadyForDownload is None):
-        logger.debug(str(counti) + ". Try to find hitory and video in history data list")
-        logger.debug("  historyID:"+str(alertID))
         try:
-            singleHistoryItem = findHistoryItem(ringDev.history(limit=10,kind=alertKind),alertID)
-            if singleHistoryItem and singleHistoryItem['id'] == alertID :
-                logger.debug("History item found!")
-                if singleHistoryItem['recording']['status'] == 'ready':
-                    logger.debug("Video is now ready to downloading")
-                    videoIsReadyForDownload = True
+            doorbell.recording_download(
+                doorbell.last_recording_id,
+                filename='last_'+str(lastAlertKind)+'_video.mp4',
+                override=True)
+            logger.debug("Got "+str(doorbell.last_recording_id)+" video for Event "+str(lastAlertID)+
+                " from Ring api after "+str(waitsec)+"s")
+            videoIsReadyForDownload = True
+            srRing('lastDingVideo ' + fhem_path + 'last_'+str(lastAlertKind)+'_video.mp4', poll_device)
         except Exception as inst:
-            logger.debug("Repeating...")
+            logger.debug("Still waiting for event "+str(lastAlertID)+" to be ready...")
         time.sleep(1)
-        counti+=1
-        if (counti>240):
+        waitsec += 1
+        if (waitsec > 240):
             logger.debug("Stop trying to find history and video data")
             break
 
-    if (alertKind == 'ding') and videoIsReadyForDownload:
-        logger.debug("Start downloading new ding video now")
-        ringDev.recording_download(alertID, filename=fhem_path + 'last_ding_video.mp4',override=True)
-        srRing('lastDingVideo ' + fhem_path + 'last_ding_video.mp4', ringDev)
-
-    elif (alertKind == 'motion') and videoIsReadyForDownload:
-        logger.debug("Start downloading new motion video now")
-        ringDev.recording_download(alertID, filename=fhem_path + 'last_motion_video.mp4',override=True)
-        srRing('lastMotionVideo ' + fhem_path + 'last_motion_video.mp4', ringDev)
-
-    if videoIsReadyForDownload:
-        srRing('lastCaptureURL ' + str(ringDev.recording_url(ringDev.last_recording_id)), ringDev)
-    #checkForVideoRunning = False
-
-def downloadLatestDingVideo(doorbell,dingsEvent,lastAlertKind):
-    logger.debug("Trying to download latest Ding-Video")
-    doorbell.recording_download(
-        doorbell.history(limit=100, kind=str(lastAlertKind))[0]['id'],
-                        filename='last_ding.mp4',
-                        override=True)
-    srRing('lastDingVideo ' + fhem_path + 'last_'+str(lastAlertKind)+'_video.mp4', poll_device)
-
-def getLastCaptureVideoURL(doorbell):
-    lastCaptureURL = doorbell.recording_url(doorbell.last_recording_id)
-    srRing('lastCaptureURL ' + str(lastCaptureURL), doorbell)
+def getLastCaptureVideoURL(doorbell,lastAlertID,lastAlertKind):
+    videoIsReadyForDownload = None
+    waitsec = 1
+    while (videoIsReadyForDownload is None):
+        try:
+            lastCaptureURL = doorbell.recording_url(lastAlertID)
+            logger.debug("Got video captureURL for Event "+str(lastAlertID)+
+                " from Ring api after"+str(waitsec)+"s")
+            videoIsReadyForDownload = True
+            srRing('lastCaptureURL ' + str(lastCaptureURL), doorbell)
+            downloadLatestDingVideo(doorbell,lastAlertID,lastAlertKind)
+        except Exception as inst:
+            # logger.debug("Still waiting for event "+str(lastAlertID)+" to be ready...")
+            time.sleep(1)
+        waitsec += 1
+        if (waitsec > 240):
+            logger.debug("Stop trying to find history and video data")
+            break
 
 def alertDevice(poll_device,dingsEvent,alert):
     # global checkForVideoRunning
@@ -238,13 +228,9 @@ def alertDevice(poll_device,dingsEvent,alert):
         logger.debug("Signalling motion to FHEM")
         srRing('lastAlertType motion', poll_device)
         setRing('motion', poll_device)
-    #if ((lastAlertKind == 'ding' or lastAlertKind == 'motion') and not checkForVideoRunning):
-    #    checkForVideoRunning = True
-    if poll_device.recording_url(poll_device.last_recording_id):
-        _thread.start_new_thread(getLastCaptureVideoURL,(poll_device,))
-        # _thread.start_new_thread(downloadLatestDingVideo,(poll_device,dingsEvent,lastAlertKind))
-        # _thread.start_new_thread(waitForVideoDownload,(lastAlertID,lastAlertKind,poll_device))
 
+    _thread.start_new_thread(getLastCaptureVideoURL,(poll_device,lastAlertID,lastAlertKind))
+    #_thread.start_new_thread(downloadLatestDingVideo,(poll_device,lastAlertID,lastAlertKind))
 
 
 # GATHERING DEVICES
