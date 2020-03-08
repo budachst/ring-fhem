@@ -1,7 +1,7 @@
 # A little Python3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.9
+# v 1.0.10
 
 import json
 import time
@@ -174,7 +174,7 @@ def downloadLatestDingVideo(doorbell,lastAlertID,lastAlertKind):
         try:
             doorbell.recording_download(
                 doorbell.last_recording_id,
-                filename='last_'+str(lastAlertKind)+'_video.mp4',
+                filename= fhem_path + 'last_'+str(lastAlertKind)+'_video.mp4',
                 override=True)
             logger.debug("Got "+str(doorbell.last_recording_id)+" video for Event "+str(lastAlertID)+
                 " from Ring api after "+str(waitsec)+"s")

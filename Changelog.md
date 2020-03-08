@@ -37,3 +37,6 @@ we leave that to the new recording_download function of the library
 
 # v 1.0.9 - added exception handling for ring api connectionStatus
 If the connection to the ring api fails, retry up to 600s before giving up and terminating
+
+# v 1.0.10 - fixed video download
+The video download path will now be honored
