@@ -1,7 +1,7 @@
 # A little Python3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.10
+# v 1.0.11
 
 import json
 import time
@@ -28,6 +28,7 @@ fhem_port = 7072 # Telnet Port
 log_level = logging.DEBUG
 fhem_path = '/opt/fhem/www/ring/' # for video downloads
 POLLS     = 2 # Poll every x seconds
+readingsUpdates = 120 # fhem readngs alle x Sek. aktualisieren
 
 # thread-related VARs
 # checkForVideoRunning = False # safeguard against race-condition
@@ -150,6 +151,7 @@ def pollDevices():
                 # logger.debug("Last URL: " + poll_device.recording_url(poll_device.last_recording_id))
 
                 if myring.dings_data:
+                    getDeviceInfo(poll_device)
                     dingsEvent = myring.dings_data[0]
                     logger.debug("Dings: " + str(myring.dings_data))
                     logger.debug("State: " + str(dingsEvent["state"]))
@@ -232,6 +234,12 @@ def alertDevice(poll_device,dingsEvent,alert):
     _thread.start_new_thread(getLastCaptureVideoURL,(poll_device,lastAlertID,lastAlertKind))
     #_thread.start_new_thread(downloadLatestDingVideo,(poll_device,lastAlertID,lastAlertKind))
 
+def fhemReadingsUpdate(dev,sleepForSec):
+    # fhem device update loop
+    while 1 > 0:
+        getDeviceInfo(dev)
+        time.sleep(sleepForSec)
+
 
 # GATHERING DEVICES
 devs = myring.devices()
@@ -240,6 +248,9 @@ logger.debug("Devices: " + str(devs))
 tmp = list(devs['doorbots']+devs['authorized_doorbots'])
 logger.debug(tmp)
 for t in tmp:
+    # start background fhemReadingsUpdate
+    _thread.start_new_thread(fhemReadingsUpdate,(t,readingsUpdates))
+
     t.update_health_data()
     logger.debug(t.address)
     # devs[t.id] = t
