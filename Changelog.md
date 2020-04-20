@@ -40,3 +40,7 @@ If the connection to the ring api fails, retry up to 600s before giving up and t
 
 # v 1.0.11 - fixed video download
 added backgound readings update
+
+# v 1.0.12 - added snapshot download each time a backgound readings updates
+# is performed
+added backgound readings update
