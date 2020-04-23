@@ -245,9 +245,14 @@ def fhemReadingsUpdate(dev,sleepForSec):
         time.sleep(sleepForSec)
 
 def downloadSnapshot(dev):
-    snapshot = dev.get_snapshot()
-    open(fhem_path + 'snap.png', "wb").write(snapshot)
-    # logger.debug("Snapshot: " + str(snapshot))
+    try:
+        snapshot = dev.get_snapshot()
+        if snapshot:
+            logger.debug("Snapshot: " + str(snapshot))
+            open(fhem_path + 'snap.png', "wb").write(snapshot)
+    except Exception as inst:
+        logger.info("No connection to ring API, continueing... ")
+        logger.info("Snapshot: " + str(snapshot)
 
 # GATHERING DEVICES
 devs = myring.devices()
