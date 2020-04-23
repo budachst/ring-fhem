@@ -1,7 +1,7 @@
 # A little Python3 app, which queries Ring products and integrates
 # them with Fhem
 #
-# v 1.0.11
+# v 1.0.12
 
 import json
 import time
@@ -25,7 +25,7 @@ ring_user = 'user@foo.bar'
 ring_pass = 'password'
 fhem_ip   = '127.0.0.1'
 fhem_port = 7072 # Telnet Port
-log_level = logging.DEBUG
+log_level = logging.INFO
 fhem_path = '/opt/fhem/www/ring/' # for video downloads
 POLLS     = 2 # Poll every x seconds
 readingsUpdates = 120 # fhem readngs alle x Sek. aktualisieren
@@ -146,6 +146,7 @@ def pollDevices():
         for poll_device in tmp:
             try:
                 myring.update_dings()
+                # downloadSnapshot(poll_device)
                 logger.debug("Polling for events with '" + poll_device.name + "'.")
                 logger.debug("Connection status '" + poll_device.connection_status + "'.")
                 # logger.debug("Last URL: " + poll_device.recording_url(poll_device.last_recording_id))
@@ -174,9 +175,10 @@ def downloadLatestDingVideo(doorbell,lastAlertID,lastAlertKind):
     waitsec = 1
     while (videoIsReadyForDownload is None):
         try:
+            logger.debug("MP4 save path: "+str(fhem_path)+ 'last_'+str(lastAlertKind)+'_video.mp4')
             doorbell.recording_download(
                 doorbell.last_recording_id,
-                filename= fhem_path + 'last_'+str(lastAlertKind)+'_video.mp4',
+                filename=str(fhem_path) + 'last_'+str(lastAlertKind)+'_video.mp4',
                 override=True)
             logger.debug("Got "+str(doorbell.last_recording_id)+" video for Event "+str(lastAlertID)+
                 " from Ring api after "+str(waitsec)+"s")
@@ -202,7 +204,7 @@ def getLastCaptureVideoURL(doorbell,lastAlertID,lastAlertKind):
             srRing('lastCaptureURL ' + str(lastCaptureURL), doorbell)
             downloadLatestDingVideo(doorbell,lastAlertID,lastAlertKind)
         except Exception as inst:
-            # logger.debug("Still waiting for event "+str(lastAlertID)+" to be ready...")
+            logger.debug("Still waiting for event "+str(lastAlertID)+" to be ready...")
             time.sleep(1)
         waitsec += 1
         if (waitsec > 240):
@@ -237,9 +239,20 @@ def alertDevice(poll_device,dingsEvent,alert):
 def fhemReadingsUpdate(dev,sleepForSec):
     # fhem device update loop
     while 1 > 0:
+        myring.update_data()
         getDeviceInfo(dev)
+        downloadSnapshot(dev)
         time.sleep(sleepForSec)
 
+def downloadSnapshot(dev):
+    try:
+        snapshot = dev.get_snapshot()
+        if snapshot:
+            logger.debug("Snapshot: " + str(snapshot))
+            open(fhem_path + 'snap.png', "wb").write(snapshot)
+    except Exception as inst:
+        logger.info("No connection to ring API, continueing... ")
+        logger.info("Snapshot: " + str(snapshot)
 
 # GATHERING DEVICES
 devs = myring.devices()
