@@ -252,7 +252,7 @@ def downloadSnapshot(dev):
             open(fhem_path + 'snap.png', "wb").write(snapshot)
     except Exception as inst:
         logger.info("No connection to ring API, continueing... ")
-        logger.info("Snapshot: " + str(snapshot)
+        logger.info("Snapshot: " + str(snapshot))
 
 # GATHERING DEVICES
 devs = myring.devices()
