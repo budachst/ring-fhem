@@ -245,6 +245,8 @@ def fhemReadingsUpdate(dev,sleepForSec):
         time.sleep(sleepForSec)
 
 def downloadSnapshot(dev):
+    # don't let snapshot ever be undefined
+    snapshot = False
     try:
         snapshot = dev.get_snapshot()
         if snapshot:
